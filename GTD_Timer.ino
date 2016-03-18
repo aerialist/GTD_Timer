@@ -43,7 +43,7 @@ void setup() {
 void loop() {
   // read the potentiometer:
   //int sensorReading = analogRead(analogPin);
-  int sensorReading = 110;
+  int sensorReading = 600;
   // map the result to a range from 0 to the number of LEDs:
   int ledLevel = map(sensorReading, 0, 1023, 0, ledCount);
 
@@ -58,6 +58,8 @@ void loop() {
     else {
       digitalWrite(ledPins[thisLed], LOW);
     }
+    delay(1); // wait 1ms. It start to flicker from 2ms. It dims without delay. 
+    digitalWrite(ledPins[thisLed], LOW);
   }
 }
 
