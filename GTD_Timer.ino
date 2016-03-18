@@ -26,41 +26,50 @@ const int analogPin = A0;   // the pin that the potentiometer is attached to
 const int ledCount = 10;    // the number of LEDs in the bar graph
 const int buttonPin = 13;   // the pin that the button is attached to
 
-
 int ledPins[] = {
   2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 };   // an array of pin numbers to which LEDs are attached
 
+uint16_t pattern0   = (B00000000 * 256) + B00000000; // Binary formatter only works for 8 bit values
+uint16_t pattern10  = (B00000000 * 256) + B00000001;
+uint16_t pattern20  = (B00000000 * 256) + B00000011;
+uint16_t pattern30  = (B00000000 * 256) + B00000111;
+uint16_t pattern40  = (B00000000 * 256) + B00001111;
+uint16_t pattern50  = (B00000000 * 256) + B00011111;
+uint16_t pattern60  = (B00000000 * 256) + B00111111;
+uint16_t pattern70  = (B00000000 * 256) + B01111111;
+uint16_t pattern80  = (B00000000 * 256) + B11111111;
+uint16_t pattern90  = (B00000001 * 256) + B11111111;
+uint16_t pattern100 = (B00000011 * 256) + B11111111;
+uint16_t pattern110 = (B00000011 * 256) + B11111111;
+
+void dynamicDrive(uint16_t pattern){
+  for (int thisLed = 0; thisLed < ledCount; thisLed++){
+    if (pattern & (1<<thisLed)){  // test pattern's thisLed-th bit
+      digitalWrite(ledPins[thisLed], HIGH);
+      delay(1); // 3ms makes flicker, 0ms dims
+      digitalWrite(ledPins[thisLed], LOW);
+    }
+  }
+}
+
+void allOFF(){
+  for (int thisLed = 0; thisLed < ledCount; thisLed++) {
+    digitalWrite(ledPins[thisLed], LOW);
+  }
+}
 
 void setup() {
   // loop over the pin array and set them all to output:
   for (int thisLed = 0; thisLed < ledCount; thisLed++) {
     pinMode(ledPins[thisLed], OUTPUT);
   }
+  allOFF();
   pinMode(buttonPin, INPUT);
 }
 
 void loop() {
-  // read the potentiometer:
-  //int sensorReading = analogRead(analogPin);
-  int sensorReading = 600;
-  // map the result to a range from 0 to the number of LEDs:
-  int ledLevel = map(sensorReading, 0, 1023, 0, ledCount);
-
-  // loop over the LED array:
-  for (int thisLed = 0; thisLed < ledCount; thisLed++) {
-    // if the array element's index is less than ledLevel,
-    // turn the pin for this element on:
-    if (thisLed < ledLevel) {
-      digitalWrite(ledPins[thisLed], HIGH);
-    }
-    // turn off all pins higher than the ledLevel:
-    else {
-      digitalWrite(ledPins[thisLed], LOW);
-    }
-    delay(1); // wait 1ms. It start to flicker from 2ms. It dims without delay. 
-    digitalWrite(ledPins[thisLed], LOW);
-  }
+  dynamicDrive(pattern90);
 }
 
 
