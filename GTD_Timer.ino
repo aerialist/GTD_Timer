@@ -5,9 +5,13 @@
 
  */
 
+#include <avr/sleep.h>
+
 // these constants won't change:
 const int ledCount = 10;    // the number of LEDs in the bar graph
 const int buttonPin = A5;   // the pin that the button is attached to
+const int inPin0 = 2;         // the input pin for interrupt0
+const int inPin1 = 3;
 
 bool DEBUG = true;
 int divider;
@@ -15,8 +19,12 @@ int divider;
 const int ledPins[] = {
   4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 };   // an array of pin numbers to which LEDs are attached
-unsigned long previousMillis = 0;
+volatile unsigned long previousMillis = 0;
 volatile bool directionF = false;
+int reading;           // the current reading from the input pin
+int previous = LOW;    // the previous reading from the input pin
+int count = 0;         // interrupt counter
+volatile bool running = false;
 
 const uint16_t pattern0    = (B00000000 * 256) + B00000000; // Binary formatter only works for 8 bit values
 const uint16_t pattern10   = (B00000000 * 256) + B00000001;
@@ -32,6 +40,8 @@ const uint16_t pattern100  = (B00000011 * 256) + B11111111;
 
 void dynamicDrive(uint16_t pattern){
   // TODO: Use Timer interrupt rather than delay
+  // TODO: Use AVR BIT set code
+  // http://playground.arduino.cc/Main/AVR
   // TODO: Set Port register directly
   for (int thisLed = 0; thisLed < ledCount; thisLed++){
     if (pattern & (1<<thisLed)){  // test pattern's thisLed-th bit
@@ -50,6 +60,55 @@ void allOFF(){
   }
 }
 
+void tilt0_isr(){
+  sleep_disable();
+  detachInterrupt(0);
+  Serial.print("Interrupt0: ");
+  Serial.println(count++);
+  running = true;
+  previousMillis = millis();
+  directionF = true;
+}
+
+void tilt1_isr(){
+  sleep_disable();
+  detachInterrupt(1);
+  Serial.print("Interrupt1: ");
+  Serial.println(count++);
+  running = true;
+  previousMillis = millis();
+  directionF = false;
+}
+
+void go_sleep(){
+  int reading0 = digitalRead(inPin0);
+  int reading1 = digitalRead(inPin1);
+  Serial.print("Pin0: ");
+  Serial.println(reading0);
+  Serial.print("Pin1: ");
+  Serial.println(reading1);
+  delay(100);
+  
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  noInterrupts(); // disable interrupts i.e. cli();
+  if (reading0 != reading1){
+    Serial.println("Going to sleep!");
+    sleep_enable(); // Set the SE (sleep enable) bit.
+    if (reading0) attachInterrupt(0, tilt0_isr, LOW);
+    if (reading1) attachInterrupt(1, tilt1_isr, LOW);
+    //sleep_bod_disable();
+    interrupts(); // enable interrupts i.e. sei();
+    sleep_cpu();  // Put the device into sleep mode. The SE bit must be set beforehand, and it is recommended to clear it afterwards.
+    
+    /* wake up here */
+    sleep_disable();
+    Serial.println("I'm awake!");
+  } else {
+    Serial.println("I'm not sleepy");
+  }
+  interrupts(); // end of some_condition
+}
+
 void setup() {
   Serial.begin(57600);
   // loop over the pin array and set them all to output:
@@ -58,7 +117,9 @@ void setup() {
   }
   allOFF();
   pinMode(buttonPin, INPUT);
-
+  pinMode(inPin0, INPUT_PULLUP);
+  pinMode(inPin1, INPUT_PULLUP);
+  
   if (DEBUG) divider = 10;
   else divider = 1;
 }
@@ -78,6 +139,7 @@ void loop() {
     Serial.print(elapsedTime);
     Serial.println(": >180 Going to sleep");
     allOFF();
+    go_sleep();
   } else if (elapsedTime > 120000 / divider){
     // two minutes has passed.
     // run final dance
