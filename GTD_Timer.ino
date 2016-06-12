@@ -1,40 +1,59 @@
-/*
-  GTD Timer
-
-  Use 10 LED Bar to count two minutes.
-
- */
+// Copyright (c) 2016 Shunya Sato
+// Author: Shunya Sato
+//
+// GTD Timer
+//
+// Use 10 LED Bar to count two minutes.
+//
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
 
 #include <avr/sleep.h>
 
 // these constants won't change:
-const int ledCount = 10;    // the number of LEDs in the bar graph
-const int inPin0 = 2;         // the input pin for interrupt0
-const int inPin1 = 3;         // the input pin for interrupt1
+const int ledCount = 10;   // the number of LEDs in the bar graph
+const int inPin0 = 2;        // the input pin for interrupt0
+const int inPin1 = 3;        // the input pin for interrupt1
 
 bool DEBUG = false;
 int divider;
 const int ledPins[] = {
   4, 5, 6, 7, 8, 9, 10, 11, 12, 13
-};   // an array of pin numbers to which LEDs are attached
+};  // an array of pin numbers to which LEDs are attached
 volatile bool checkOrientation = true;
-volatile unsigned long firstMillis = 0;    // for debounce
+volatile unsigned long firstMillis = 0;   // for debounce
 volatile unsigned long previousMillis = 0;
 volatile bool directionF = false;
 bool previousDirection = false;
-int reading0_1 = 0;  // temporary direction reading
+int reading0_1 = 0; // temporary direction reading
 int reading1_1 = 0;
-int count = 0;         // interrupt counter
+int count = 0;        // interrupt counter
 
 enum states {
-  CHECK1, // check orientation for the 1st time
-  CHECK2, // check orientation for the 2nd time
+  CHECK1,// check orientation for the 1st time
+  CHECK2,// check orientation for the 2nd time
   RUNNING
 };
 
 volatile enum states state = CHECK1;
 
-const uint16_t pattern0    = (B00000000 * 256) + B00000000; // Binary formatter only works for 8 bit values
+const uint16_t pattern0    = (B00000000 * 256) + B00000000;// Binary formatter only works for 8 bit values
 const uint16_t pattern10   = (B00000000 * 256) + B00000001;
 const uint16_t pattern20   = (B00000000 * 256) + B00000011;
 const uint16_t pattern30   = (B00000000 * 256) + B00000111;
@@ -49,9 +68,9 @@ const uint16_t pattern100  = (B00000011 * 256) + B11111111;
 // PortB: Crystal, Crystal, Digital Pin 13, 12, 11, 10, 9, 8
 
 uint8_t flip8(uint8_t v){
-  // mirror uint8_t
-  // http://forum.arduino.cc/index.php?topic=54304.15
-  uint16_t s = sizeof(v) * 8;   // bit size; must be power of 2
+ // mirror uint8_t
+ // http://forum.arduino.cc/index.php?topic=54304.15
+  uint16_t s = sizeof(v) * 8;  // bit size; must be power of 2
   uint16_t mask = ~0;
   while ((s >>= 1) > 0)
   {
@@ -62,10 +81,10 @@ uint8_t flip8(uint8_t v){
 }
 
 void dynamicDrive(uint16_t pattern){
-  // const uint16_t pattern100  = (B00000011 * 256) + B11111111;
-  // const uint8_t pattern100b = B00111111, pattern100d = B11110000;
+ // const uint16_t pattern100  = (B00000011 * 256) + B11111111;
+ // const uint8_t pattern100b = B00111111, pattern100d = B11110000;
   if (directionF){
-    // flip pattern for upside down
+   // flip pattern for upside down
     uint8_t a = pattern >> 8;
     uint8_t b = pattern;
     pattern = (flip8(b) * 256 + flip8(a)) >> 6;
@@ -74,14 +93,14 @@ void dynamicDrive(uint16_t pattern){
   uint8_t patternd = pattern << 4;
   for (int thisLed = 0; thisLed < ledCount; thisLed++){
     if (thisLed >= 0 && thisLed < 4){
-      // PORTD
+     // PORTD
       bool myBit = bitRead(patternd, thisLed+4);
       uint8_t newPortD = PORTD & B00001111;
       PORTD = bitWrite(newPortD, thisLed+4, myBit);
       PORTB = PORTB & B11000000;
     }
     else {
-      // PORTB
+     // PORTB
       bool myBit = bitRead(patternb, thisLed-4);
       uint8_t newPortB = PORTB & B11000000;
       PORTB = bitWrite(newPortB, thisLed-4, myBit);
@@ -98,15 +117,15 @@ void allOFF(){
 }
 
 void tilt_isr(){
-  // isr during operation to detect flipping
-  //detachInterrupt(digitalPinToInterrupt(inPin0));
-  //Serial.print("Interrupt: ");
-  //Serial.println(count++);
+ // isr during operation to detect flipping
+ //detachInterrupt(digitalPinToInterrupt(inPin0));
+ //Serial.print("Interrupt: ");
+ //Serial.println(count++);
   state = CHECK1;
 }
 
 void sleep_isr(){
-  // isr0 to wake up from sleep
+ // isr0 to wake up from sleep
   sleep_disable();
   detachInterrupt(0);
   detachInterrupt(1);
@@ -126,15 +145,15 @@ void go_sleep(){
   delay(100);
 
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  noInterrupts(); // disable interrupts i.e. cli();
+  noInterrupts();// disable interrupts i.e. cli();
   if (reading0 != reading1){
     Serial.println("Going to sleep!");
-    sleep_enable(); // Set the SE (sleep enable) bit.
+    sleep_enable();// Set the SE (sleep enable) bit.
     if (reading0) attachInterrupt(0, sleep_isr, LOW);
     if (reading1) attachInterrupt(1, sleep_isr, LOW);
-    //sleep_bod_disable();
-    interrupts(); // enable interrupts i.e. sei();
-    sleep_cpu();  // Put the device into sleep mode. The SE bit must be set beforehand, and it is recommended to clear it afterwards.
+   //sleep_bod_disable();
+    interrupts();// enable interrupts i.e. sei();
+    sleep_cpu(); // Put the device into sleep mode. The SE bit must be set beforehand, and it is recommended to clear it afterwards.
 
     /* wake up here */
     sleep_disable();
@@ -142,39 +161,39 @@ void go_sleep(){
   } else {
     Serial.println("I'm not sleepy");
   }
-  interrupts(); // end of some_condition
+  interrupts();// end of some_condition
   attachInterrupt(digitalPinToInterrupt(inPin0), tilt_isr, FALLING);
   attachInterrupt(digitalPinToInterrupt(inPin1), tilt_isr, FALLING);
 }
 
 void findOrientation1(){
-  // make sure we read clean twice before and after debounce time
-  //noInterrupts(); // disable interrupts i.e. cli();
-  // 1st check
+ // make sure we read clean twice before and after debounce time
+ //noInterrupts();// disable interrupts i.e. cli();
+ // 1st check
   Serial.print("Find orientation1: ");
   reading0_1 = digitalRead(inPin0);
   reading1_1 = digitalRead(inPin1);
   firstMillis = millis();
   state = CHECK2;
   Serial.println(firstMillis);
-  //interrupts();
+ //interrupts();
 }
 void findOrientation2(){
-  // 2nd check
-  //Serial.print("Find orientation2: ");
+ // 2nd check
+ //Serial.print("Find orientation2: ");
   unsigned long now = millis();
-  //Serial.println(now);
+ //Serial.println(now);
   unsigned long delta = now - firstMillis;
   if (delta > 300){
-    // waited for debounce time
+   // waited for debounce time
     Serial.print("  Debounce time elapsed: ");
     int reading0 = digitalRead(inPin0);
     int reading1 = digitalRead(inPin1);
     if (reading0 == reading0_1 && reading1 == reading1_1) {
-      // reading is stable
+     // reading is stable
       if (reading0 + reading1 == 1){
         Serial.println("Good reading");
-        // direction is definite
+       // direction is definite
         Serial.print("    reading0: ");
         Serial.println(reading0);
         Serial.print("    reading1: ");
@@ -195,7 +214,7 @@ void findOrientation2(){
         return;
       }
     }
-    // not clean. Do 1st again.
+   // not clean. Do 1st again.
     Serial.println("Not good reading");
     findOrientation1();
   }
@@ -204,7 +223,7 @@ void findOrientation2(){
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting GTD timer!");
-  // loop over the pin array and set them all to output:
+ // loop over the pin array and set them all to output:
   for (int thisLed = 0; thisLed < ledCount; thisLed++) {
     pinMode(ledPins[thisLed], OUTPUT);
   }
@@ -221,7 +240,7 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis();
-  unsigned long elapsedTime = currentMillis - previousMillis; // elapsed time since last isr
+  unsigned long elapsedTime = currentMillis - previousMillis;// elapsed time since last isr
 
   if (state == CHECK1){
     findOrientation1();
@@ -229,82 +248,82 @@ void loop() {
     findOrientation2();
   } else{
     if (elapsedTime > 180000 / divider){
-      // three minutes has passed.
-      // go to sleep
+     // three minutes has passed.
+     // go to sleep
       Serial.print(elapsedTime);
       Serial.println(": >180 Going to sleep");
       allOFF();
       go_sleep();
     } else if (elapsedTime > 120000 / divider){
-      // two minutes has passed.
-      // run final dance
-      //Serial.print(elapsedTime);
-      //Serial.println(": >120");
-      // alternate by a second
+     // two minutes has passed.
+     // run final dance
+     //Serial.print(elapsedTime);
+     //Serial.println(": >120");
+     // alternate by a second
       if ((elapsedTime / 1000) % 2){
         dynamicDrive(pattern0);
       } else {
         dynamicDrive(pattern100);
       }
     } else if (elapsedTime > 110000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >110");
-      // alternate by a 100 ms
+     //Serial.print(elapsedTime);
+     //Serial.println(": >110");
+     // alternate by a 100 ms
       if ((elapsedTime / 100) % 2){
         dynamicDrive(pattern90);
       } else {
         dynamicDrive(pattern100);
       }
     } else if (elapsedTime > 100000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >100");
-      // alternate by a second
+     //Serial.print(elapsedTime);
+     //Serial.println(": >100");
+     // alternate by a second
       if ((elapsedTime / 1000) % 2){
         dynamicDrive(pattern90);
       } else {
         dynamicDrive(pattern100);
       }
     } else if (elapsedTime > 90000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >90");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >90");
       dynamicDrive(pattern90);
     } else if (elapsedTime > 80000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >80");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >80");
       dynamicDrive(pattern80);
     } else if (elapsedTime > 70000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >70");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >70");
       dynamicDrive(pattern70);
     } else if (elapsedTime > 60000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >60");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >60");
       dynamicDrive(pattern60);
     } else if (elapsedTime > 50000 / divider){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >50");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >50");
       dynamicDrive(pattern50);
     } else if (elapsedTime > 40000){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >40");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >40");
       dynamicDrive(pattern40);
     } else if (elapsedTime > 30000){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >30");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >30");
       dynamicDrive(pattern30);
     } else if (elapsedTime > 20000){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >20");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >20");
       dynamicDrive(pattern20);
     } else if (elapsedTime > 10000){
-      //Serial.print(elapsedTime);
-      //Serial.println(": >10");
+     //Serial.print(elapsedTime);
+     //Serial.println(": >10");
       dynamicDrive(pattern10);
     } else {
-      // less than 10 sec
-      //Serial.print(elapsedTime);
-      //Serial.println(": Less than 10");
-      // alternate by a second
+     // less than 10 sec
+     //Serial.print(elapsedTime);
+     //Serial.println(": Less than 10");
+     // alternate by a second
       if ((elapsedTime / 1000) % 2){
         dynamicDrive(pattern0);
       } else {
